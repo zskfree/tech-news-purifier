@@ -3,7 +3,7 @@ import http.server
 import socketserver
 import os
 
-PORT = 80
+PORT = 8080
 DIRECTORY = '/opt/tech-news-purifier/podcast'
 
 class PodcastHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
@@ -12,21 +12,17 @@ class PodcastHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
     def end_headers(self):
         self.send_header('Access-Control-Allow-Origin', '*')
-        if self.path.endswith('.xml'):
+        clean_path = self.path.split('?')[0].lower()
+        if clean_path.endswith('.xml'):
             self.send_header('Content-Type', 'application/rss+xml; charset=utf-8')
+        elif clean_path.endswith('.mp3'):
+            self.send_header('Content-Type', 'audio/mpeg')
         super().end_headers()
 
 if __name__ == '__main__':
     os.makedirs(DIRECTORY, exist_ok=True)
-    print(f'📻 播客 HTTP 服务启动中，端口 {PORT}...')
+    print(f"📻 播客 HTTP 服务启动中，端口 {PORT}...")
     handler = PodcastHTTPRequestHandler
-    try:
-        with socketserver.TCPServer(('0.0.0.0', PORT), handler) as httpd:
-            print(f'✅ 播客 HTTP 服务在线！监听端口: {PORT}')
-            httpd.serve_forever()
-    except Exception as e:
-        print(f'端口 {PORT} 启动失败，尝试使用 8080 端口: {e}')
-        PORT = 8080
-        with socketserver.TCPServer(('0.0.0.0', PORT), handler) as httpd:
-            print(f'✅ 播客 HTTP 服务在线！监听端口: {PORT}')
-            httpd.serve_forever()
+    with socketserver.TCPServer(('0.0.0.0', PORT), handler) as httpd:
+        print(f"✅ 播客 HTTP 服务在线！监听端口: {PORT}")
+        httpd.serve_forever()

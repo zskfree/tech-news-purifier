@@ -50,30 +50,29 @@ def get_article_priority(source, title, content):
 
 def fetch_today_keep_articles(limit=10):
     """
-    Bug Fix: 只取当日（或不足当日则扩展到最近 3 天）的 KEEP 资讯，
-    避免每次都拿全量历史数据，确保播报的是最新内容。
+    Bug Fix: 使用相对 UTC 时间 (-24 hours) 获取最新资讯，
+    完全规避 UTC 格式与 CST 北京时间早晨 07:30 跨日界线匹配失败的 Bug。
     """
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    today = datetime.date.today().isoformat()
     
-    # 优先取今天的资讯
+    # 优先取过去 24 小时以内的资讯
     cursor.execute('''
         SELECT source, title, link, purified_content, created_at
         FROM articles
-        WHERE status = 'KEEP' AND date(created_at) = ?
+        WHERE status = 'KEEP' AND created_at >= datetime('now', '-24 hours')
         ORDER BY created_at DESC
         LIMIT ?
-    ''', (today, limit * 3))
+    ''', (limit * 3,))
     rows = cursor.fetchall()
 
-    # 若今日资讯不足 3 条，则回退到最近 3 天
+    # 若 24 小时内资讯不足 3 条，扩展至过去 72 小时
     if len(rows) < 3:
-        print(f'⚠️ 今日资讯仅 {len(rows)} 条，回退至最近 3 天...')
+        print(f'⚠️ 24 小时内资讯仅 {len(rows)} 条，扩展至过去 72 小时...')
         cursor.execute('''
             SELECT source, title, link, purified_content, created_at
             FROM articles
-            WHERE status = 'KEEP' AND date(created_at) >= date('now', '-3 days')
+            WHERE status = 'KEEP' AND created_at >= datetime('now', '-72 hours')
             ORDER BY created_at DESC
             LIMIT ?
         ''', (limit * 3,))
@@ -184,6 +183,7 @@ def build_feed_xml(date_str, mp3_filename, mp3_size, articles_list, script_text)
     for source, title, link, content, _ in articles_list:
         html_desc += f"<li><b>[{source}]</b> <a href='{link}'>{title}</a></li>"
     html_desc += "</ul><p><i>本播客由 AI 自动提纯技术资讯并生成声音。</i></p>"
+    html_desc = html_desc.replace(']]>', ']]&gt;')
 
     new_item = f'''    <item>
       <title>极客早报 | {date_str} 硬核技术精选</title>
