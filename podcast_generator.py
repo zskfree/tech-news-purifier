@@ -228,6 +228,13 @@ def split_script_into_chunks(text, max_len=280):
         chunks.append(curr)
     return chunks
 
+def clean_tts_text(text):
+    """移除可能会导致 Edge-TTS 无法识别的 HTML/XML 字符及非打印字符"""
+    text = re.sub(r'<[^>]+>', '', text)
+    text = re.sub(r'[\*\#\`\_\<\>\\\/]', '', text)
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip()
+
 async def synthesize_audio_chunked(full_script, output_mp3_path):
     """
     分块合成 Edge-TTS 并使用 ffmpeg 转化为 24kbps 单声道高压缩人声 MP3。
@@ -235,55 +242,89 @@ async def synthesize_audio_chunked(full_script, output_mp3_path):
     paragraphs = split_script_into_chunks(full_script, max_len=280)
     chunk_paths = []
 
-    # 临时分块文件
-    for i, para in enumerate(paragraphs, 1):
-        chunk_file = f"{output_mp3_path}.chunk_{i}.mp3"
-        chunk_paths.append(chunk_file)
+    # 1. 彻底清理目录中旧的临时 chunk 文件
+    audio_dir = os.path.dirname(output_mp3_path)
+    for old_file in os.listdir(audio_dir):
+        if old_file.endswith('.mp3') and '.chunk_' in old_file:
+            try:
+                os.remove(os.path.join(audio_dir, old_file))
+            except Exception:
+                pass
 
-        voices = [TTS_VOICE, TTS_FALLBACK_VOICE]
+    # 2. 临时分块文件合成
+    for i, para in enumerate(paragraphs, 1):
+        para_clean = clean_tts_text(para)
+        if not para_clean:
+            continue
+
+        chunk_file = f"{output_mp3_path}.chunk_{i}.mp3"
+        if os.path.exists(chunk_file):
+            os.remove(chunk_file)
+
+        voices = [TTS_VOICE, TTS_FALLBACK_VOICE, 'zh-CN-YunjianNeural']
         success = False
+        
         for voice in voices:
             for attempt in range(3):
                 try:
-                    communicate = edge_tts.Communicate(para, voice, rate='+5%')
+                    communicate = edge_tts.Communicate(para_clean, voice, rate='+0%')
                     await communicate.save(chunk_file)
                     if os.path.exists(chunk_file) and os.path.getsize(chunk_file) > 500:
                         success = True
                         break
+                    elif os.path.exists(chunk_file):
+                        os.remove(chunk_file)
                 except Exception as e:
-                    print(f"[!] 短块 #{i} Edge-TTS 尝试失败: {e}")
-                await asyncio.sleep(1)
+                    if os.path.exists(chunk_file):
+                        os.remove(chunk_file)
+                await asyncio.sleep(0.5)
             if success:
                 break
         
-        if not success:
-            raise RuntimeError(f"短块 #{i} 合成失败，中止生成。")
+        if success:
+            chunk_paths.append(chunk_file)
+        else:
+            print(f"⚠️ 短块 #{i} 合成失败，跳过该小句...")
+            if os.path.exists(chunk_file):
+                os.remove(chunk_file)
 
-    # 拼接原始 MP3 列表
+    # 3. 仅保留实际存在且大于 500 字节的真实块
+    valid_chunks = [cp for cp in chunk_paths if os.path.exists(cp) and os.path.getsize(cp) > 500]
+    if not valid_chunks:
+        raise RuntimeError("全部短块合成失败，无法压制音频。")
+
+    # 4. 拼接原始 MP3 列表
     concat_list_path = f"{output_mp3_path}.txt"
     with open(concat_list_path, 'w', encoding='utf-8') as f:
-        for cp in chunk_paths:
+        for cp in valid_chunks:
             f.write(f"file '{cp}'\n")
 
-    raw_mp3_concat = f"{output_mp3_path}.raw.mp3"
-    
-    # 1. 使用 ffmpeg concat 拼接段落
-    cmd_concat = [
-        'ffmpeg', '-y', '-f', 'concat', '-safe', '0',
-        '-i', concat_list_path, '-c', 'copy', raw_mp3_concat
-    ]
-    subprocess.run(cmd_concat, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
-
-    # 2. 人声专属高压缩转码 (24 kbps Mono 22.05kHz MP3)
+    # 5. 使用 ffmpeg concat 顺畅拼接并直接转码 (24 kbps Mono 22.05kHz MP3)
     cmd_compress = [
-        'ffmpeg', '-y', '-i', raw_mp3_concat,
+        'ffmpeg', '-y', '-f', 'concat', '-safe', '0',
+        '-i', concat_list_path,
         '-ac', '1',          # 单声道 Mono
         '-ar', '22050',      # 22.05 kHz 采样率
         '-b:a', '24k',       # 24 kbps 目标码率
         output_mp3_path
     ]
-    print(f"⚡ 使用 FFmpeg 压制人声专属 24kbps 单声道 MP3: {output_mp3_path} ...")
-    subprocess.run(cmd_compress, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+    print(f"⚡ 使用 FFmpeg 压制 {len(valid_chunks)} 个切片为人声专属 24kbps 单声道 MP3: {output_mp3_path} ...")
+    try:
+        subprocess.run(cmd_compress, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"[!] FFmpeg 压制异常: {e.stderr.decode('utf-8', errors='ignore')}")
+        raise e
+
+    # 清理所有段落临时文件
+    for cp in valid_chunks:
+        if os.path.exists(cp):
+            os.remove(cp)
+    if os.path.exists(concat_list_path):
+        os.remove(concat_list_path)
+
+    final_size = os.path.getsize(output_mp3_path)
+    print(f"✅ 音频压制成功！最终体积: {final_size / (1024*1024):.2f} MB")
+    return final_size
 
     # 清理临时文件
     for cp in chunk_paths:
