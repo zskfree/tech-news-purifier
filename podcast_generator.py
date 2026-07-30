@@ -1,16 +1,17 @@
 # -*- coding: utf-8 -*-
-import os
 import sqlite3
 import datetime
+import os
 import re
 import time
 import asyncio
+import subprocess
 from email.utils import formatdate
 import httpx
 import edge_tts
 from dotenv import load_dotenv
 
-load_dotenv()  # 加载 .env 文件（生产环境直接设置系统环境变量）
+load_dotenv()  # 加载 .env 文件
 
 DB_PATH = os.environ.get('DB_PATH', '/opt/tech-news-purifier/news.db')
 PODCAST_DIR = os.environ.get('PODCAST_DIR', '/opt/tech-news-purifier/podcast')
@@ -29,12 +30,12 @@ SERVER_BASE_URL = os.environ.get('SERVER_BASE_URL', 'http://47.115.165.231')
 COVER_URL = f"{SERVER_BASE_URL}/cover.png"
 TTS_VOICE = 'zh-CN-YunxiNeural'
 TTS_FALLBACK_VOICE = 'zh-CN-XiaoxiaoNeural'
-TTS_MIN_FILE_SIZE = 50_000  # 50KB，小于此则认为合成失败
+TTS_MIN_FILE_SIZE = 50_000
 
 AI_KEYWORDS = [
     'ai', 'llm', 'agent', 'gpt', 'gemini', 'claude', '大模型', '机器学习',
     '深度学习', 'mlops', '神经网络', '智能', 'transformer', 'openai',
-    'alphafold', 'deepmind', 'anthropic', 'kimi', '模型', '推理'
+    'alphafold', 'deepmind', 'anthropic', 'kimi', '模型', '推理', '智源'
 ]
 
 def ensure_dirs():
@@ -44,30 +45,28 @@ def get_article_priority(source, title, content):
     text_lower = (f"{source} {title} {content}").lower()
     if any(kw in text_lower for kw in AI_KEYWORDS):
         return 1
-    if 'github' in source.lower():
+    if 'github' in source.lower() or 'github' in text_lower:
         return 2
     return 3
 
-def fetch_today_keep_articles(limit=10):
+def fetch_today_keep_articles(limit=15):
     """
-    Bug Fix: 使用相对 UTC 时间 (-24 hours) 获取最新资讯，
-    完全规避 UTC 格式与 CST 北京时间早晨 07:30 跨日界线匹配失败的 Bug。
+    取过去 24 小时以内的 KEEP 资讯，不足则扩展至 72 小时。
+    扩大取样数量至 12~15 篇，为 20 分钟长播客提供充足干货素材。
     """
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # 优先取过去 24 小时以内的资讯
     cursor.execute('''
         SELECT source, title, link, purified_content, created_at
         FROM articles
         WHERE status = 'KEEP' AND created_at >= datetime('now', '-24 hours')
         ORDER BY created_at DESC
         LIMIT ?
-    ''', (limit * 3,))
+    ''', (limit * 2,))
     rows = cursor.fetchall()
 
-    # 若 24 小时内资讯不足 3 条，扩展至过去 72 小时
-    if len(rows) < 3:
+    if len(rows) < 6:
         print(f'⚠️ 24 小时内资讯仅 {len(rows)} 条，扩展至过去 72 小时...')
         cursor.execute('''
             SELECT source, title, link, purified_content, created_at
@@ -75,7 +74,7 @@ def fetch_today_keep_articles(limit=10):
             WHERE status = 'KEEP' AND created_at >= datetime('now', '-72 hours')
             ORDER BY created_at DESC
             LIMIT ?
-        ''', (limit * 3,))
+        ''', (limit * 2,))
         rows = cursor.fetchall()
 
     conn.close()
@@ -86,138 +85,294 @@ def fetch_today_keep_articles(limit=10):
     )
     return sorted_articles[:limit]
 
-def generate_script_with_ai(articles):
-    if not articles:
-        return None
-
-    articles_formatted = []
-    for i, (source, title, link, content, created_at) in enumerate(articles, 1):
-        prio = get_article_priority(source, title, content)
-        prio_tag = "【AI 核心】" if prio == 1 else ("【GitHub 开源项目】" if prio == 2 else "【硬核科技】")
-        articles_formatted.append(f"[{prio_tag}] 来源：{source}\n标题：{title}\n内容提炼：\n{content}\n")
-
-    articles_str = "\n".join(articles_formatted)
-
-    prompt = f'''你是一位充满活力的科技播客主讲人。请根据以下按优先级排序筛选出的【{len(articles)}篇】技术资讯/项目，撰写一份可以直接用于语音朗读的【极客早报播客文稿】。
-
-资讯列表：
-{articles_str}
-
-【播客结构与演播顺序严格要求】：
-1. 【第一板块：AI 重磅前沿】（最高优先级，优先演播）：开场白后，优先聚焦演播 AI、大模型、AI Agent 及 MLOps 相关的重磅资讯与行业深度研判。
-2. 【第二板块：GitHub 优质开源推荐】（次高优先级）：重点介绍优秀的 GitHub 飙升项目，清晰口语化说明项目解决了什么痛点、核心特色及适用场景。
-3. 【第三板块：硬核科技与架构前沿】：最后演播其他系统级、编译器、基础设施网络或前端动态。
-
-文稿撰写要求：
-1. 口语化、自然流畅、有温度，适合单人主持演播（开场白 -> AI重磅 -> GitHub开源 -> 其他硬核 -> 简短结语）。
-2. 严禁出现任何 Markdown 语法符号（如 #、**、-、🔗 等）、严禁出现代码块。
-3. 严禁朗读复杂的 URL 网址，遇到链接只需提示"详细链接已放在节目简介中"。
-4. 遇到技术词汇和版本号要符合中文口语习惯（例如 v5.109.2 读作"5点109点2版本"）。
-5. 字数控制在 900 ~ 1300 字之间，节奏明快，总演播时长约 3~4 分钟。
-'''
-
+def call_ai(prompt, max_tokens=2000, temperature=0.3):
     models_to_try = [PRIMARY_MODEL, FALLBACK_MODEL]
     for model in models_to_try:
         for attempt in range(2):
             try:
-                print(f"🤖 尝试模型 [{model}] 生成台本 (第 {attempt + 1} 次)...")
                 payload = {
                     'model': model,
                     'messages': [{'role': 'user', 'content': prompt}],
-                    'temperature': 0.3,
-                    'max_tokens': 1500
+                    'temperature': temperature,
+                    'max_tokens': max_tokens
                 }
                 headers = {
                     'Authorization': f'Bearer {ONE_API_KEY}',
                     'Content-Type': 'application/json'
                 }
-                resp = httpx.post(ONE_API_URL, json=payload, headers=headers, timeout=45.0)
+                resp = httpx.post(ONE_API_URL, json=payload, headers=headers, timeout=60.0)
                 if resp.status_code == 200:
-                    script = resp.json()['choices'][0]['message']['content'].strip()
-                    if len(script) > 200:  # 防止模型返回极短异常内容
-                        print(f"✅ 模型 [{model}] 成功生成台本（{len(script)} 字）！")
-                        # 二次清洗 Markdown 符号
-                        return re.sub(r'[\*\#\`\_]', '', script)
-                    else:
-                        print(f"[!] 模型 [{model}] 返回内容过短 ({len(script)} 字)，重试...")
-                else:
-                    print(f"[!] 模型 [{model}] HTTP {resp.status_code}: {resp.text[:80]}")
+                    text = resp.json()['choices'][0]['message']['content'].strip()
+                    if len(text) > 150:
+                        return re.sub(r'[\*\#\`\_]', '', text)
             except Exception as e:
-                print(f"[!] 模型 [{model}] 异常: {e}")
+                print(f"[!] 模型 [{model}] 调用异常: {e}")
             time.sleep(2)
+    return ""
 
-    print("[!] 所有模型与重试均失败！")
-    return None
-
-async def synthesize_audio(text, output_mp3_path):
-    """带自动重试和备用音色兜底的 Edge-TTS 合成"""
-    voices = [TTS_VOICE, TTS_FALLBACK_VOICE]
-    for voice in voices:
-        for attempt in range(3):
-            try:
-                print(f'🎙️ Edge-TTS [{voice}] 合成 (尝试 {attempt + 1})...')
-                communicate = edge_tts.Communicate(text, voice, rate='+5%')
-                await communicate.save(output_mp3_path)
-                size = os.path.getsize(output_mp3_path) if os.path.exists(output_mp3_path) else 0
-                if size >= TTS_MIN_FILE_SIZE:
-                    print(f'✅ 音频生成成功: {output_mp3_path} ({size / 1024:.1f} KB)')
-                    return True
-                else:
-                    print(f'[!] 音频文件过小 ({size} 字节)，判定为失败，重试...')
-            except Exception as e:
-                print(f'[!] Edge-TTS [{voice}] 尝试 {attempt + 1} 失败: {e}')
-            await asyncio.sleep(3)
-
-    raise RuntimeError("Edge-TTS 全部重试失败，无法生成音频")
-
-def build_feed_xml(date_str, mp3_filename, mp3_size, articles_list, script_text):
+def generate_20min_script_with_ai(articles):
     """
-    Bug Fix: 重写 feed.xml 构建逻辑，采用完整重建策略，
-    避免旧的字符串替换逻辑导致的 XML 结构损坏问题。
-    读取已有 <item> 列表，插入新 <item>，整体重新输出。
+    分块深度写作链 (Map-Reduce Script Pipeline):
+    将文章分组为 4 个板块，逐板块发起 AI 生成，最终拼合为 5500~6500 字（约20分钟）的深度播客文稿。
+    """
+    if not articles:
+        return None, []
+
+    # 分组资讯
+    ai_articles = [a for a in articles if get_article_priority(a[0], a[1], a[3]) == 1]
+    github_articles = [a for a in articles if get_article_priority(a[0], a[1], a[3]) == 2]
+    other_articles = [a for a in articles if get_article_priority(a[0], a[1], a[3]) == 3]
+
+    # 如果分类不均，合理平摊
+    if not ai_articles and articles:
+        ai_articles = articles[:len(articles)//2]
+        other_articles = articles[len(articles)//2:]
+
+    segments = [
+        ("AI 重磅前沿深度解析", ai_articles, "聚焦 AI 模型突破、安全对齐、行业大事件与宏观影响。深入探讨技术解决的痛点、架构逻辑与行业含义。"),
+        ("GitHub 热门开源与工程实践", github_articles, "重点剖析优秀开源项目、开发者工具和实用框架。口语化解释项目背景、特色及应用场景。"),
+        ("硬核科技与系统架构", other_articles, "探讨编译器、网络协议、数据库、基础设施及前沿技术。深度剖析技术实现与架构启示。")
+    ]
+
+    full_script_parts = []
+    chapter_timestamps = []  # (title, estimate_minute_str)
+    current_word_count = 0
+
+    # 1. 生成开场白
+    intro_prompt = f'''你是一位资深技术播客主讲人。请为今天的《极客早报 20分钟深度版》撰写一段热情的开场白。
+简要概括今天涵盖的三大核心板块（AI重磅前沿、GitHub开源精选、硬核系统架构）。
+要求：口语化、自然流畅、有温度，字数在 400~500 字之间。无 Markdown 符号。'''
+    
+    print("🎙️ [1/5] 生成播客开场白与今日导览...")
+    intro_text = call_ai(intro_prompt, max_tokens=1000) or "各位极客朋友们大家好，欢迎收听今天的极客早报深度版！我是你们的主播。今天的科技圈干货满满，废话不多说，我们直接进入今天的科技深度快讯。"
+    full_script_parts.append(intro_text)
+    
+    # 记录开场时间戳
+    chapter_timestamps.append(("🎙️ 节目开场与今日导览", "00:00"))
+    current_word_count += len(intro_text)
+
+    # 2. 逐板块生成深度演播文本
+    for idx, (seg_title, seg_arts, seg_desc) in enumerate(segments, 2):
+        if not seg_arts:
+            continue
+
+        # 计算当前预计时间戳 (按 280字/分钟 估算)
+        est_minutes = int(current_word_count / 280)
+        est_seconds = int((current_word_count % 280) / 280 * 60)
+        time_str = f"{est_minutes:02d}:{est_seconds:02d}"
+        chapter_timestamps.append((f"🔥 【板块】{seg_title}", time_str))
+
+        arts_str = ""
+        for i, (source, title, link, content, _) in enumerate(seg_arts, 1):
+            arts_str += f"\n资讯 #{i}：[{source}] {title}\n详细提炼内容：\n{content}\n"
+
+        seg_prompt = f'''你是一位资深技术播客主讲人。请根据以下【{seg_title}】板块的资讯列表，撰写一段非常深入、详实、口语化的播客演播文稿。
+
+板块定位：{seg_desc}
+
+资讯列表：
+{arts_str}
+
+【撰写要求】：
+1. 字数必须达到 1500 ~ 1800 字！不要简单念标题，要深入拆解：为什么这个技术/项目重要？它解决了什么痛点？对开发者有哪些启发？
+2. 口语化、自然流畅，用“我们看到”、“这里值得注意的是”、“对于开发者来说”等口语表达。
+3. 严禁出现任何 Markdown 语法符号（如 #、**、-、🔗 等），严禁出现代码块。
+4. 遇到的网址不要朗读，直接说“详细链接已放在节目简介中”。
+5. 遇到版本号或专业词汇符合中文演播习惯（如 v5.109 读作“5点109版本”）。'''
+
+        print(f"🎙️ [{idx}/5] 生成板块《{seg_title}》深度播客文稿（目标 1600 字）...")
+        seg_script = call_ai(seg_prompt, max_tokens=2500)
+        if seg_script:
+            full_script_parts.append(seg_script)
+            current_word_count += len(seg_script)
+        else:
+            print(f"[!] 板块《{seg_title}》AI 生成失败，跳过该板块")
+
+    # 3. 生成结语与总结
+    outro_prompt = '''你是一位资深技术播客主讲人。请为今天的 20 分钟极客早报撰写一段引发思考的结语与总结。
+感谢听众收听，提示大家可以在 Apple Podcasts 节目简介中查看所有资讯的原文链接与时间戳章节。
+字数要求 300~400 字，口语化自然，无 Markdown 符号。'''
+
+    print("🎙️ [5/5] 生成播客总结与尾声...")
+    outro_text = call_ai(outro_prompt, max_tokens=800) or "以上就是今天极客早报的全部深度内容。感谢大家的收听，节目简介中已附上所有项目的原文链接。我们明天早晨 7 点 30 分不见不散！"
+    
+    est_minutes = int(current_word_count / 280)
+    est_seconds = int((current_word_count % 280) / 280 * 60)
+    chapter_timestamps.append(("💬 结语与明日预告", f"{est_minutes:02d}:{est_seconds:02d}"))
+    
+    full_script_parts.append(outro_text)
+    current_word_count += len(outro_text)
+
+    full_script = "\n\n".join(full_script_parts)
+    print(f"🎉 20 分钟长播客文稿生成完毕！总字数：{len(full_script)} 字")
+    return full_script, chapter_timestamps
+
+async def synthesize_audio_chunked(full_script, output_mp3_path):
+    """
+    分块合成 Edge-TTS 并使用 ffmpeg 转化为 24kbps 单声道高压缩人声 MP3。
+    """
+    paragraphs = [p.strip() for p in full_script.split('\n\n') if p.strip()]
+    chunk_paths = []
+
+    # 临时分块文件
+    for i, para in enumerate(paragraphs, 1):
+        chunk_file = f"{output_mp3_path}.chunk_{i}.mp3"
+        chunk_paths.append(chunk_file)
+
+        voices = [TTS_VOICE, TTS_FALLBACK_VOICE]
+        success = False
+        for voice in voices:
+            for attempt in range(3):
+                try:
+                    communicate = edge_tts.Communicate(para, voice, rate='+5%')
+                    await communicate.save(chunk_file)
+                    if os.path.exists(chunk_file) and os.path.getsize(chunk_file) > 1000:
+                        success = True
+                        break
+                except Exception as e:
+                    print(f"[!] 段落 #{i} Edge-TTS 尝试失败: {e}")
+                await asyncio.sleep(2)
+            if success:
+                break
+        
+        if not success:
+            raise RuntimeError(f"段落 #{i} 合成失败，中止生成。")
+
+    # 拼接原始 MP3 列表
+    concat_list_path = f"{output_mp3_path}.txt"
+    with open(concat_list_path, 'w', encoding='utf-8') as f:
+        for cp in chunk_paths:
+            f.write(f"file '{cp}'\n")
+
+    raw_mp3_concat = f"{output_mp3_path}.raw.mp3"
+    
+    # 1. 使用 ffmpeg concat 拼接段落
+    cmd_concat = [
+        'ffmpeg', '-y', '-f', 'concat', '-safe', '0',
+        '-i', concat_list_path, '-c', 'copy', raw_mp3_concat
+    ]
+    subprocess.run(cmd_concat, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+
+    # 2. 人声专属高压缩转码 (24 kbps Mono 22.05kHz MP3)
+    cmd_compress = [
+        'ffmpeg', '-y', '-i', raw_mp3_concat,
+        '-ac', '1',          # 单声道 Mono
+        '-ar', '22050',      # 22.05 kHz 采样率
+        '-b:a', '24k',       # 24 kbps 目标码率
+        output_mp3_path
+    ]
+    print(f"⚡ 使用 FFmpeg 压制人声专属 24kbps 单声道 MP3: {output_mp3_path} ...")
+    subprocess.run(cmd_compress, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+
+    # 清理临时文件
+    for cp in chunk_paths:
+        if os.path.exists(cp):
+            os.remove(cp)
+    if os.path.exists(concat_list_path):
+        os.remove(concat_list_path)
+    if os.path.exists(raw_mp3_concat):
+        os.remove(raw_mp3_concat)
+
+    final_size = os.path.getsize(output_mp3_path)
+    print(f"✅ 音频压制成功！最终体积: {final_size / (1024*1024):.2f} MB")
+    return final_size
+
+def get_audio_duration_str(mp3_path):
+    """使用 ffprobe 精确获取音频时长格式为 HH:MM:SS"""
+    try:
+        cmd = [
+            'ffprobe', '-v', 'error', '-show_entries',
+            'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', mp3_path
+        ]
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+        total_seconds = float(res.stdout.strip())
+        hours = int(total_seconds // 3600)
+        minutes = int((total_seconds % 3600) // 60)
+        seconds = int(total_seconds % 60)
+        if hours > 0:
+            return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+        else:
+            return f"{minutes:02d}:{seconds:02d}"
+    except Exception as e:
+        print(f"[!] 获取音频精确时长失败，使用默认值: {e}")
+        return "20:00"
+
+def build_feed_xml(date_str, mp3_filename, mp3_size, duration_str, articles_list, script_text, chapter_timestamps):
+    """
+    构建符合 Apple Podcasts 最佳规范的播客 XML：
+    包含 <content:encoded> 富文本、带跳转点的时间戳章节导航、详细资讯卡片与准确时长。
     """
     audio_url = f"{SERVER_BASE_URL}/audio/{mp3_filename}"
     pub_date = formatdate(usegmt=True)
 
-    html_desc = f"<h3>🎙️ 极客早报 ({date_str})</h3><p>{script_text[:250]}...</p><h4>📌 本期涵盖资讯：</h4><ul>"
+    # 1. 构建时间戳 HTML 导览 (Apple Podcasts 支持点击跳转)
+    timestamps_html = "<h3>⏱️ 章节与时间戳导航</h3><ul>"
+    for title, t_str in chapter_timestamps:
+        timestamps_html += f"<li><b>{t_str}</b> - {title}</li>"
+    timestamps_html += "</ul>"
+
+    # 2. 构建分篇目详细资讯卡片 HTML
+    articles_html = "<h3>📌 本期涵盖硬核资讯列表</h3>"
     for source, title, link, content, _ in articles_list:
-        html_desc += f"<li><b>[{source}]</b> <a href='{link}'>{title}</a></li>"
-    html_desc += "</ul><p><i>本播客由 AI 自动提纯技术资讯并生成声音。</i></p>"
-    html_desc = html_desc.replace(']]>', ']]&gt;')
+        prio = get_article_priority(source, title, content)
+        prio_tag = "🔥 [AI重磅]" if prio == 1 else ("🛠️ [开源飙升]" if prio == 2 else "🏗️ [系统架构]")
+        
+        articles_html += f'''<div style="margin-bottom: 15px; padding: 10px; border-left: 3px solid #007aff; background-color: #f8f9fa;">
+  <p><b>{prio_tag} [{source}]</b> <a href="{link}"><b>{title}</b></a></p>
+  <p style="font-size: 0.9em; color: #333;">{content}</p>
+  <p style="font-size: 0.85em;"><a href="{link}">🔗 点击阅读原文/GitHub项目主页</a></p>
+</div>'''
+
+    # 3. 组合完整的 content:encoded HTML
+    content_encoded_html = f'''<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <h2>🎙️ 极客早报 20分钟深度版 ({date_str})</h2>
+  <p><i>每日 07:30 自动生成全网硬核技术资讯、优质开源项目与架构突破精炼音频播客。</i></p>
+  <hr/>
+  {timestamps_html}
+  <hr/>
+  <h3>📝 播客文稿导览</h3>
+  <p>{script_text[:400]}...</p>
+  <hr/>
+  {articles_html}
+</div>'''
+
+    # 安全转义 CDATA 闭合符
+    content_encoded_safe = content_encoded_html.replace(']]>', ']]&gt;')
+    short_desc = f"极客早报深度版 ({date_str})：包含 AI 重磅前沿、GitHub 开源精选与系统架构等 {len(articles_list)} 篇技术干货。"
 
     new_item = f'''    <item>
-      <title>极客早报 | {date_str} 硬核技术精选</title>
-      <description><![CDATA[{html_desc}]]></description>
+      <title>极客早报 | {date_str} 20分钟硬核技术深度精选</title>
+      <description><![CDATA[{short_desc}]]></description>
+      <content:encoded><![CDATA[{content_encoded_safe}]]></content:encoded>
       <pubDate>{pub_date}</pubDate>
       <enclosure url="{audio_url}" length="{mp3_size}" type="audio/mpeg"/>
       <guid isPermaLink="false">geek-news-{date_str}</guid>
-      <itunes:duration>04:00</itunes:duration>
+      <itunes:duration>{duration_str}</itunes:duration>
       <itunes:explicit>no</itunes:explicit>
       <itunes:image href="{COVER_URL}"/>
+      <itunes:summary><![CDATA[{short_desc}]]></itunes:summary>
     </item>'''
 
-    # 提取已有 feed 中的所有 <item>，并过滤掉今日已存在的
+    # 保留历史单集
     existing_items = ""
     if os.path.exists(FEED_XML_PATH):
         with open(FEED_XML_PATH, 'r', encoding='utf-8') as f:
             old_xml = f.read()
-        # 提取所有 <item>...</item> 块，移除今日旧版本
         items = re.findall(r'<item>.*?</item>', old_xml, flags=re.DOTALL)
         kept = [item for item in items if f'geek-news-{date_str}' not in item]
-        existing_items = '\n'.join(kept)
-        if kept:
-            print(f'   └─ 保留了 {len(kept)} 条历史单集')
+        existing_items = '\n'.join(kept[:30])  # 保留最近 30 期
 
-    # 重建完整 feed.xml（最新单集在最前面）
     new_xml = f'''<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+<rss version="2.0" 
+  xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"
+  xmlns:content="http://purl.org/rss/1.0/modules/content/">
   <channel>
     <title>极客早报 | AI 自动精选技术播客</title>
     <link>{SERVER_BASE_URL}/feed.xml</link>
     <language>zh-cn</language>
     <copyright>Copyright 2026 Tech News Purifier</copyright>
     <itunes:author>Tech News Purifier Engine</itunes:author>
-    <itunes:subtitle>每日硬核技术资讯与架构突破精炼音频听报</itunes:subtitle>
+    <itunes:subtitle>每日 20 分钟硬核技术资讯、开源项目与架构突破听报</itunes:subtitle>
     <itunes:summary>每日 07:30 自动生成全网硬核技术资讯、优质开源项目与架构突破精炼音频播客。</itunes:summary>
     <itunes:owner>
       <itunes:name>极客早报</itunes:name>
@@ -249,28 +404,32 @@ def main():
     output_mp3_path = os.path.join(AUDIO_DIR, mp3_filename)
 
     print('=' * 60)
-    print(f'🎙️ 开始生成【极客早报】AI 音频播客 [{today_str}]')
+    print(f'🎙️ 开始生成【极客早报】20 分钟 AI 深度播客 [{today_str}]')
     print('=' * 60)
 
-    articles = fetch_today_keep_articles(limit=8)
+    articles = fetch_today_keep_articles(limit=15)
     if not articles:
         print('[!] 未找到可用资讯，跳过播客生成。')
         return
 
-    print(f'🔍 获取到 {len(articles)} 篇资讯，优先尝试模型 [{PRIMARY_MODEL}]...')
-    script_text = generate_script_with_ai(articles)
+    print(f'🔍 获取到 {len(articles)} 篇资讯，开启“总-分-总”多板块深度台本写作链...')
+    script_text, chapter_timestamps = generate_20min_script_with_ai(articles)
     if not script_text:
         print('[!] 播客台本生成失败。')
         return
 
-    print('\n--- [播客台本预览] ---')
-    print(script_text[:400] + '...\n')
+    print('\n--- [播客台本部分预览] ---')
+    print(script_text[:500] + '...\n')
 
-    asyncio.run(synthesize_audio(script_text, output_mp3_path))
+    print('🎙️ 开始分段 Edge-TTS 语音合成与 FFmpeg 高压缩压制...')
+    asyncio.run(synthesize_audio_chunked(script_text, output_mp3_path))
     mp3_size = os.path.getsize(output_mp3_path)
 
-    print('📻 正在更新 Podcast RSS Feed...')
-    build_feed_xml(today_str, mp3_filename, mp3_size, articles, script_text)
+    duration_str = get_audio_duration_str(output_mp3_path)
+    print(f"⏱️ 最终音频精确时长: {duration_str}")
+
+    print('📻 正在更新 Podcast RSS Feed (包含 Apple 富文本与章节导航)...')
+    build_feed_xml(today_str, mp3_filename, mp3_size, duration_str, articles, script_text, chapter_timestamps)
 
 if __name__ == '__main__':
     main()
