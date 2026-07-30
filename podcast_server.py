@@ -3,7 +3,7 @@ import http.server
 import socketserver
 import os
 
-PORT = 8080
+PORT = 80
 DIRECTORY = '/opt/tech-news-purifier/podcast'
 
 class PodcastHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
@@ -19,10 +19,20 @@ class PodcastHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.send_header('Content-Type', 'audio/mpeg')
         super().end_headers()
 
+class ReusableThreadingHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
+    allow_reuse_address = True
+
 if __name__ == '__main__':
     os.makedirs(DIRECTORY, exist_ok=True)
-    print(f"📻 播客 HTTP 服务启动中，端口 {PORT}...")
     handler = PodcastHTTPRequestHandler
-    with socketserver.TCPServer(('0.0.0.0', PORT), handler) as httpd:
+    try:
+        print(f"📻 播客 HTTP 服务启动中，端口 {PORT}...")
+        httpd = ReusableThreadingHTTPServer(('0.0.0.0', PORT), handler)
+        print(f"✅ 播客 HTTP 服务在线！监听端口: {PORT}")
+        httpd.serve_forever()
+    except Exception as e:
+        print(f"⚠️ 端口 {PORT} 绑定失败 ({e})，尝试备用 8080 端口...")
+        PORT = 8080
+        httpd = ReusableThreadingHTTPServer(('0.0.0.0', PORT), handler)
         print(f"✅ 播客 HTTP 服务在线！监听端口: {PORT}")
         httpd.serve_forever()
