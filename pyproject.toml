@@ -1,0 +1,11 @@
+[project]
+name = "tech-news-purifier"
+version = "0.1.0"
+description = "AI Tech News Purifier Engine"
+requires-python = ">=3.12"
+dependencies = [
+    "edge-tts>=7.2.8",
+    "feedparser",
+    "httpx",
+    "python-dotenv>=1.2.2",
+]

@@ -1,0 +1,69 @@
+# =========================
+# Python 通用忽略
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+
+# 虚拟环境
+.venv/
+venv/
+env/
+ENV/
+
+# =========================
+# uv / pip
+# =========================
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# =========================
+# 敏感配置（严禁提交）
+# =========================
+# 注意：.env.example 是模板文件，允许提交，其余 .env 文件均禁止
+.env
+.env.local
+.env.production
+.env.development
+.env.staging
+config.local.py
+
+# =========================
+# 运行时生成数据（不纳入版本控制）
+# =========================
+
+# SQLite 数据库（含处理历史，体积大）
+news.db
+*.db
+*.sqlite3
+
+# 日志
+logs/
+*.log
+
+# 播客生成物（大体积二进制/动态文件）
+podcast/audio/
+podcast/feed.xml
+podcast/cover.png
+
+# =========================
+# IDE / 系统文件
+# =========================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# =========================
+# 其他
+# =========================
+*.bak
+*.tmp
