@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
+  <title id="title">Tech News Purifier</title>
+  <desc id="desc">AI-Powered Tech News Purifier and 20-Minute Audio Podcast Generator Engine</desc>
+
+  <defs>
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0B0F19"/>
+      <stop offset="50%" stop-color="#111827"/>
+      <stop offset="100%" stop-color="#0B0F19"/>
+    </linearGradient>
+    <linearGradient id="card-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1E293B" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#0F172A" stop-opacity="0.9"/>
+    </linearGradient>
+    <linearGradient id="card-border" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.4"/>
+      <stop offset="50%" stop-color="#818CF8" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#334155" stop-opacity="0.1"/>
+    </linearGradient>
+    <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
+      <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#334155" stroke-width="0.5" stroke-opacity="0.3"/>
+    </pattern>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="360" rx="20" fill="url(#bg-grad)"/>
+  <rect width="1200" height="360" rx="20" fill="url(#grid)"/>
+
+  <!-- Left Content Block -->
+  <g id="title-block" transform="translate(56, 44)">
+    <!-- Badge -->
+    <rect x="0" y="0" width="280" height="30" rx="15" fill="#1E293B" stroke="#06B6D4" stroke-opacity="0.4" stroke-width="1"/>
+    <text x="14" y="20" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600" fill="#22D3EE">✦ AI-POWERED PODCAST ENGINE</text>
+
+    <!-- Main Title -->
+    <text x="0" y="80" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="44" font-weight="800" fill="#F8FAFC" letter-spacing="-0.5">Tech News Purifier</text>
+
+    <!-- Subtitle -->
+    <text x="0" y="118" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', sans-serif" font-size="18" font-weight="500" fill="#94A3B8">多源 RSS 智能降噪 • 20 分钟 AI 深度播客 • 24kbps 人声极简压缩</text>
+
+    <!-- Feature Highlights -->
+    <g transform="translate(0, 146)">
+      <!-- Item 1 -->
+      <g transform="translate(0, 0)">
+        <circle cx="10" cy="10" r="10" fill="#06B6D4" opacity="0.2"/>
+        <path d="M7 10l2 2 4-4" stroke="#22D3EE" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <text x="28" y="15" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', sans-serif" font-size="15" font-weight="500" fill="#E2E8F0">智能降噪与去重归排 (OneAPI / Gemini)</text>
+      </g>
+      <!-- Item 2 -->
+      <g transform="translate(0, 32)">
+        <circle cx="10" cy="10" r="10" fill="#8B5CF6" opacity="0.2"/>
+        <path d="M7 10l2 2 4-4" stroke="#A855F7" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <text x="28" y="15" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', sans-serif" font-size="15" font-weight="500" fill="#E2E8F0">“总-分-总” 5 阶段长台本 (5000+ 字/集)</text>
+      </g>
+      <!-- Item 3 -->
+      <g transform="translate(0, 64)">
+        <circle cx="10" cy="10" r="10" fill="#10B981" opacity="0.2"/>
+        <path d="M7 10l2 2 4-4" stroke="#34D399" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <text x="28" y="15" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', sans-serif" font-size="15" font-weight="500" fill="#E2E8F0">FFmpeg 24kbps 单声道编码 (~2MB/集)</text>
+      </g>
+    </g>
+
+    <!-- Tech Stack Pill Badges -->
+    <g transform="translate(0, 256)">
+      <rect x="0" y="0" width="86" height="26" rx="6" fill="#1E293B" stroke="#475569" stroke-width="1"/>
+      <text x="43" y="17" font-family="ui-monospace, SFMono-Regular, monospace" font-size="12" font-weight="600" fill="#38BDF8" text-anchor="middle">Python 3.12</text>
+
+      <rect x="96" y="0" width="80" height="26" rx="6" fill="#1E293B" stroke="#475569" stroke-width="1"/>
+      <text x="136" y="17" font-family="ui-monospace, SFMono-Regular, monospace" font-size="12" font-weight="600" fill="#C084FC" text-anchor="middle">Edge-TTS</text>
+
+      <rect x="186" y="0" width="76" height="26" rx="6" fill="#1E293B" stroke="#475569" stroke-width="1"/>
+      <text x="224" y="17" font-family="ui-monospace, SFMono-Regular, monospace" font-size="12" font-weight="600" fill="#34D399" text-anchor="middle">FFmpeg</text>
+
+      <rect x="272" y="0" width="112" height="26" rx="6" fill="#1E293B" stroke="#475569" stroke-width="1"/>
+      <text x="328" y="17" font-family="ui-monospace, SFMono-Regular, monospace" font-size="12" font-weight="600" fill="#F472B6" text-anchor="middle">Apple Podcasts</text>
+    </g>
+  </g>
+
+  <!-- Right Visual Proof Card: Terminal & Pipeline Specimen -->
+  <g id="project-proof" transform="translate(680, 40)">
+    <!-- Main Card Outer Border & Shadow -->
+    <rect x="0" y="0" width="460" height="280" rx="16" fill="url(#card-border)"/>
+    <rect x="1.5" y="1.5" width="457" height="277" rx="15" fill="url(#card-grad)"/>
+
+    <!-- Terminal Header Bar -->
+    <path d="M 1.5 16 A 14.5 14.5 0 0 1 16 1.5 L 444 1.5 A 14.5 14.5 0 0 1 458.5 16 L 458.5 36 L 1.5 36 Z" fill="#0F172A"/>
+    <circle cx="20" cy="18" r="5" fill="#EF4444"/>
+    <circle cx="36" cy="18" r="5" fill="#F59E0B"/>
+    <circle cx="52" cy="18" r="5" fill="#10B981"/>
+    <text x="230" y="22" font-family="ui-monospace, SFMono-Regular, monospace" font-size="12" fill="#64748B" text-anchor="middle">podcast-pipeline.service</text>
+
+    <!-- Terminal Content Area -->
+    <!-- Pipeline Step 1 -->
+    <g transform="translate(20, 52)">
+      <rect x="0" y="0" width="420" height="42" rx="8" fill="#1E293B" fill-opacity="0.6"/>
+      <text x="14" y="26" font-family="ui-monospace, SFMono-Regular, monospace" font-size="13" fill="#38BDF8">📥 RSS Fetcher</text>
+      <text x="406" y="26" font-family="ui-monospace, SFMono-Regular, monospace" font-size="13" fill="#94A3B8" text-anchor="end">15 Feeds Purified</text>
+    </g>
+
+    <!-- Arrow down -->
+    <path d="M 230 96 L 230 106" stroke="#06B6D4" stroke-width="2" stroke-dasharray="2 2"/>
+
+    <!-- Pipeline Step 2 -->
+    <g transform="translate(20, 108)">
+      <rect x="0" y="0" width="420" height="42" rx="8" fill="#1E293B" fill-opacity="0.6"/>
+      <text x="14" y="26" font-family="ui-monospace, SFMono-Regular, monospace" font-size="13" fill="#C084FC">🤖 LLM Writer</text>
+      <text x="406" y="26" font-family="ui-monospace, SFMono-Regular, monospace" font-size="13" fill="#A7F3D0" text-anchor="end">5,400+ Words Script</text>
+    </g>
+
+    <!-- Arrow down -->
+    <path d="M 230 152 L 230 162" stroke="#8B5CF6" stroke-width="2" stroke-dasharray="2 2"/>
+
+    <!-- Pipeline Step 3 -->
+    <g transform="translate(20, 164)">
+      <rect x="0" y="0" width="420" height="42" rx="8" fill="#1E293B" fill-opacity="0.6"/>
+      <text x="14" y="26" font-family="ui-monospace, SFMono-Regular, monospace" font-size="13" fill="#34D399">🎙️ Edge-TTS + FFmpeg</text>
+      <text x="406" y="26" font-family="ui-monospace, SFMono-Regular, monospace" font-size="13" fill="#FDE047" text-anchor="end">28:03 Min • 4.88 MB</text>
+    </g>
+
+    <!-- Status Bar / Metric Footer -->
+    <g transform="translate(20, 222)">
+      <rect x="0" y="0" width="420" height="40" rx="8" fill="#06B6D4" fill-opacity="0.1" stroke="#06B6D4" stroke-opacity="0.3" stroke-width="1"/>
+      <circle cx="20" cy="20" r="4" fill="#10B981"/>
+      <text x="32" y="25" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600" fill="#22D3EE">Apple Podcast RSS Online</text>
+      <text x="406" y="25" font-family="ui-monospace, SFMono-Regular, monospace" font-size="13" font-weight="700" fill="#34D399" text-anchor="end">HTTP 200 OK</text>
+    </g>
+  </g>
+</svg>

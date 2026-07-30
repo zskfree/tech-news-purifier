@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="280" viewBox="0 0 1200 280" role="img" aria-labelledby="arch-title arch-desc">
+  <title id="arch-title">Tech News Purifier System Architecture</title>
+  <desc id="arch-desc">Architecture diagram of RSS Purifier, LLM Podcast Generator, FFmpeg Audio Compressor, and Podcast Server</desc>
+
+  <defs>
+    <linearGradient id="bg-arch" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F172A"/>
+      <stop offset="100%" stop-color="#0B0F19"/>
+    </linearGradient>
+    <linearGradient id="box-grad1" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1E293B"/>
+      <stop offset="100%" stop-color="#0F172A"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="280" rx="16" fill="url(#bg-arch)" stroke="#1E293B" stroke-width="1"/>
+
+  <!-- Title -->
+  <text x="44" y="40" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="18" font-weight="700" fill="#F8FAFC">系统架构与自动化发布流程 (Architecture Workflow)</text>
+
+  <!-- Node 1: RSS Feeds -->
+  <g transform="translate(44, 60)">
+    <rect width="240" height="180" rx="12" fill="url(#box-grad1)" stroke="#38BDF8" stroke-width="1.5" stroke-opacity="0.6"/>
+    <rect x="16" y="16" width="36" height="36" rx="8" fill="#38BDF8" fill-opacity="0.2"/>
+    <text x="34" y="40" font-family="sans-serif" font-size="18" text-anchor="middle">📡</text>
+    <text x="64" y="38" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="700" fill="#F8FAFC">1. 数据抓取与降噪</text>
+    <text x="64" y="58" font-family="ui-monospace, SFMono-Regular, monospace" font-size="12" fill="#38BDF8">purifier.py</text>
+    
+    <text x="16" y="94" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" fill="#94A3B8">• 抓取多源 RSS 科技新闻</text>
+    <text x="16" y="118" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" fill="#94A3B8">• LLM/OneAPI 过滤标题党</text>
+    <text x="16" y="142" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" fill="#94A3B8">• 洗稿去重 &amp; 结构化存储</text>
+    <rect x="16" y="154" width="208" height="2" fill="#06B6D4" fill-opacity="0.4"/>
+  </g>
+
+  <!-- Node 2: LLM Script Generator -->
+  <g transform="translate(324, 60)">
+    <rect width="250" height="180" rx="12" fill="url(#box-grad1)" stroke="#C084FC" stroke-width="1.5" stroke-opacity="0.6"/>
+    <rect x="16" y="16" width="36" height="36" rx="8" fill="#C084FC" fill-opacity="0.2"/>
+    <text x="34" y="40" font-family="sans-serif" font-size="18" text-anchor="middle">🧠</text>
+    <text x="64" y="38" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="700" fill="#F8FAFC">2. 长播客台本生成</text>
+    <text x="64" y="58" font-family="ui-monospace, SFMono-Regular, monospace" font-size="12" fill="#C084FC">podcast_generator.py</text>
+
+    <text x="16" y="94" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" fill="#94A3B8">• 5 阶段 “总-分-总” 写作链</text>
+    <text x="16" y="118" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" fill="#94A3B8">• 3 大核心板块深度展开</text>
+    <text x="16" y="142" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" fill="#94A3B8">• 目标 5000+ 字 (20分钟)</text>
+    <rect x="16" y="154" width="218" height="2" fill="#A855F7" fill-opacity="0.4"/>
+  </g>
+
+  <!-- Node 3: Edge-TTS & FFmpeg -->
+  <g transform="translate(614, 60)">
+    <rect width="250" height="180" rx="12" fill="url(#box-grad1)" stroke="#34D399" stroke-width="1.5" stroke-opacity="0.6"/>
+    <rect x="16" y="16" width="36" height="36" rx="8" fill="#34D399" fill-opacity="0.2"/>
+    <text x="34" y="40" font-family="sans-serif" font-size="18" text-anchor="middle">🎙️</text>
+    <text x="64" y="38" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="700" fill="#F8FAFC">3. 语音合成与高压</text>
+    <text x="64" y="58" font-family="ui-monospace, SFMono-Regular, monospace" font-size="12" fill="#34D399">Edge-TTS &amp; FFmpeg</text>
+
+    <text x="16" y="94" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" fill="#94A3B8">• 短句分块 Edge-TTS 合成</text>
+    <text x="16" y="118" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" fill="#94A3B8">• FFmpeg 24kbps 单声道转码</text>
+    <text x="16" y="142" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" fill="#94A3B8">• 极致压缩 (~2MB/集)</text>
+    <rect x="16" y="154" width="218" height="2" fill="#10B981" fill-opacity="0.4"/>
+  </g>
+
+  <!-- Node 4: Podcast Server & Feed -->
+  <g transform="translate(904, 60)">
+    <rect width="252" height="180" rx="12" fill="url(#box-grad1)" stroke="#F472B6" stroke-width="1.5" stroke-opacity="0.6"/>
+    <rect x="16" y="16" width="36" height="36" rx="8" fill="#F472B6" fill-opacity="0.2"/>
+    <text x="34" y="40" font-family="sans-serif" font-size="18" text-anchor="middle">📻</text>
+    <text x="64" y="38" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="700" fill="#F8FAFC">4. RSS 与客户端订阅</text>
+    <text x="64" y="58" font-family="ui-monospace, SFMono-Regular, monospace" font-size="12" fill="#F472B6">podcast_server.py</text>
+
+    <text x="16" y="94" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" fill="#94A3B8">• 生成 feed.xml RSS 订阅源</text>
+    <text x="16" y="118" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" fill="#94A3B8">• Apple 富文本 HTML 排版</text>
+    <text x="16" y="142" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" fill="#94A3B8">• JSON 章节导航 (Chapters)</text>
+    <rect x="16" y="154" width="220" height="2" fill="#EC4899" fill-opacity="0.4"/>
+  </g>
+</svg>
