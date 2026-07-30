@@ -118,20 +118,28 @@ def generate_20min_script_with_ai(articles):
     if not articles:
         return None, []
 
-    # 分组资讯
-    ai_articles = [a for a in articles if get_article_priority(a[0], a[1], a[3]) == 1]
-    github_articles = [a for a in articles if get_article_priority(a[0], a[1], a[3]) == 2]
-    other_articles = [a for a in articles if get_article_priority(a[0], a[1], a[3]) == 3]
+def generate_20min_script_with_ai(articles):
+    """
+    分块深度写作链 (Map-Reduce Script Pipeline):
+    将文章平衡分组为 3 个板块，逐板块发起 AI 生成，拼合为 5500~6500 字（约20分钟）的深度播客文稿。
+    """
+    if not articles:
+        return None, []
 
-    # 如果分类不均，合理平摊
-    if not ai_articles and articles:
-        ai_articles = articles[:len(articles)//2]
-        other_articles = articles[len(articles)//2:]
+    # 按优先级排序，然后按比例强行分成 3 组，确保无任何空板块
+    sorted_arts = sorted(articles, key=lambda a: (get_article_priority(a[0], a[1], a[3]), a[4]))
+    total_n = len(sorted_arts)
+    c1_end = max(1, total_n // 3)
+    c2_end = max(2, (total_n * 2) // 3)
+    
+    chunk1 = sorted_arts[:c1_end]
+    chunk2 = sorted_arts[c1_end:c2_end]
+    chunk3 = sorted_arts[c2_end:]
 
     segments = [
-        ("AI 重磅前沿深度解析", ai_articles, "聚焦 AI 模型突破、安全对齐、行业大事件与宏观影响。深入探讨技术解决的痛点、架构逻辑与行业含义。"),
-        ("GitHub 热门开源与工程实践", github_articles, "重点剖析优秀开源项目、开发者工具和实用框架。口语化解释项目背景、特色及应用场景。"),
-        ("硬核科技与系统架构", other_articles, "探讨编译器、网络协议、数据库、基础设施及前沿技术。深度剖析技术实现与架构启示。")
+        ("AI 与前沿重磅深度解析", chunk1, "聚焦前沿大模型突破、安全对齐、行业大事件与宏观影响。深入探讨技术解决的痛点、架构逻辑与行业含义。"),
+        ("GitHub 热门开源与工程实践", chunk2, "重点剖析优秀开源项目、开发者工具和实用框架。口语化解释项目背景、特色及应用场景。"),
+        ("硬核科技与系统架构前沿", chunk3, "探讨编译器、网络协议、数据库、基础设施及前沿技术。深度剖析技术实现与架构启示。")
     ]
 
     full_script_parts = []
@@ -207,11 +215,30 @@ def generate_20min_script_with_ai(articles):
     print(f"🎉 20 分钟长播客文稿生成完毕！总字数：{len(full_script)} 字")
     return full_script, chapter_timestamps
 
+def split_script_into_chunks(text, max_len=280):
+    """按句号/问号/感叹号切分长文本为 <=280 字的短句块，彻底杜绝 Edge-TTS 超时"""
+    raw_sentences = re.split(r'(?<=[。！？\n])', text)
+    chunks = []
+    curr = ""
+    for s in raw_sentences:
+        s = s.strip()
+        if not s:
+            continue
+        if len(curr) + len(s) > max_len:
+            if curr:
+                chunks.append(curr)
+            curr = s
+        else:
+            curr += (" " + s if curr else s)
+    if curr:
+        chunks.append(curr)
+    return chunks
+
 async def synthesize_audio_chunked(full_script, output_mp3_path):
     """
     分块合成 Edge-TTS 并使用 ffmpeg 转化为 24kbps 单声道高压缩人声 MP3。
     """
-    paragraphs = [p.strip() for p in full_script.split('\n\n') if p.strip()]
+    paragraphs = split_script_into_chunks(full_script, max_len=280)
     chunk_paths = []
 
     # 临时分块文件
@@ -226,17 +253,17 @@ async def synthesize_audio_chunked(full_script, output_mp3_path):
                 try:
                     communicate = edge_tts.Communicate(para, voice, rate='+5%')
                     await communicate.save(chunk_file)
-                    if os.path.exists(chunk_file) and os.path.getsize(chunk_file) > 1000:
+                    if os.path.exists(chunk_file) and os.path.getsize(chunk_file) > 500:
                         success = True
                         break
                 except Exception as e:
-                    print(f"[!] 段落 #{i} Edge-TTS 尝试失败: {e}")
-                await asyncio.sleep(2)
+                    print(f"[!] 短块 #{i} Edge-TTS 尝试失败: {e}")
+                await asyncio.sleep(1)
             if success:
                 break
         
         if not success:
-            raise RuntimeError(f"段落 #{i} 合成失败，中止生成。")
+            raise RuntimeError(f"短块 #{i} 合成失败，中止生成。")
 
     # 拼接原始 MP3 列表
     concat_list_path = f"{output_mp3_path}.txt"
