@@ -85,7 +85,7 @@ def fetch_today_keep_articles(limit=15):
     )
     return sorted_articles[:limit]
 
-def call_ai(prompt, max_tokens=2000, temperature=0.3):
+def call_ai(prompt, max_tokens=2000, temperature=0.3, min_length=150):
     models_to_try = [PRIMARY_MODEL, FALLBACK_MODEL]
     for model in models_to_try:
         for attempt in range(2):
@@ -103,20 +103,14 @@ def call_ai(prompt, max_tokens=2000, temperature=0.3):
                 resp = httpx.post(ONE_API_URL, json=payload, headers=headers, timeout=60.0)
                 if resp.status_code == 200:
                     text = resp.json()['choices'][0]['message']['content'].strip()
-                    if len(text) > 150:
+                    if len(text) >= min_length:
                         return re.sub(r'[\*\#\`\_]', '', text)
+                    else:
+                        print(f"[!] 模型 [{model}] 返回内容偏短 ({len(text)} 字 < {min_length} 字)，自动重试...")
             except Exception as e:
                 print(f"[!] 模型 [{model}] 调用异常: {e}")
             time.sleep(2)
     return ""
-
-def generate_20min_script_with_ai(articles):
-    """
-    分块深度写作链 (Map-Reduce Script Pipeline):
-    将文章分组为 4 个板块，逐板块发起 AI 生成，最终拼合为 5500~6500 字（约20分钟）的深度播客文稿。
-    """
-    if not articles:
-        return None, []
 
 def generate_20min_script_with_ai(articles):
     """
@@ -152,7 +146,7 @@ def generate_20min_script_with_ai(articles):
 要求：口语化、自然流畅、有温度，字数在 400~500 字之间。无 Markdown 符号。'''
     
     print("🎙️ [1/5] 生成播客开场白与今日导览...")
-    intro_text = call_ai(intro_prompt, max_tokens=1000) or "各位极客朋友们大家好，欢迎收听今天的极客早报深度版！我是你们的主播。今天的科技圈干货满满，废话不多说，我们直接进入今天的科技深度快讯。"
+    intro_text = call_ai(intro_prompt, max_tokens=1000, min_length=300) or "各位极客朋友们大家好，欢迎收听今天的极客早报深度版！我是你们的主播。今天的科技圈干货满满，废话不多说，我们直接进入今天的科技深度快讯。"
     full_script_parts.append(intro_text)
     
     # 记录开场时间戳
@@ -189,7 +183,7 @@ def generate_20min_script_with_ai(articles):
 5. 遇到版本号或专业词汇符合中文演播习惯（如 v5.109 读作“5点109版本”）。'''
 
         print(f"🎙️ [{idx}/5] 生成板块《{seg_title}》深度播客文稿（目标 1600 字）...")
-        seg_script = call_ai(seg_prompt, max_tokens=2500)
+        seg_script = call_ai(seg_prompt, max_tokens=3000, min_length=900)
         if seg_script:
             full_script_parts.append(seg_script)
             current_word_count += len(seg_script)
