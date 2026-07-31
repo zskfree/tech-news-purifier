@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tech News Purifier - 极客早报净化与 20 分钟播客引擎</title>
+  <meta name="description" content="Tech News Purifier 自动化 AI 科技新闻净化与播客生成系统，自动抓取多源 RSS、结构化去重打分并压制 24kbps 单声道极简长播客。" />
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-D8N8EL5FCK"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+    gtag('config', 'G-D8N8EL5FCK');
+  </script>
+  <!-- 不蒜子统计 -->
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+  <style>
+    :root {
+      /* 极简主义配色：克制的灰阶 + 一抹墨色 */
+      --color-bg: #fafaf9;
+      --color-surface: #ffffff;
+      --color-text: #1a1a1a;
+      --color-text-muted: #737373;
+      --color-text-subtle: #a3a3a3;
+      --color-border: #e5e5e5;
+      --color-border-strong: #1a1a1a;
+      --color-accent: #1a1a1a;
+      --color-error: #991b1b;
+      --color-badge-bg: #f0f0ef;
+
+      --space-xs: 8px;
+      --space-sm: 12px;
+      --space-md: 24px;
+      --space-lg: 48px;
+      --space-xl: 80px;
+
+      --font-serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", serif;
+      --font-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+      --font-mono: "SF Mono", "JetBrains Mono", "Menlo", monospace;
+    }
+
+    [data-theme="dark"] {
+      --color-bg: #121212;
+      --color-surface: #1e1e1e;
+      --color-text: #e5e5e5;
+      --color-text-muted: #a3a3a3;
+      --color-text-subtle: #737373;
+      --color-border: #2e2e2e;
+      --color-border-strong: #e5e5e5;
+      --color-accent: #e5e5e5;
+      --color-error: #f87171;
+      --color-badge-bg: #262626;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      background-color: var(--color-bg);
+      color: var(--color-text);
+      font-family: var(--font-sans);
+      font-size: 15px;
+      line-height: 1.6;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 520px;
+      padding: var(--space-xl) var(--space-md);
+    }
+
+    /* 顶部标识 */
+    .brand {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      color: var(--color-text-subtle);
+      text-transform: uppercase;
+      margin-bottom: var(--space-xl);
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+    }
+
+    .brand-line {
+      flex: 1;
+      height: 1px;
+      background: var(--color-border);
+      transition: background 0.3s ease;
+    }
+
+    .brand-github {
+      color: var(--color-text);
+      display: flex;
+      transition: transform 0.2s ease, color 0.3s ease;
+    }
+
+    .brand-github:hover {
+      color: var(--color-accent);
+      transform: scale(1.15);
+    }
+
+    .theme-toggle {
+      background: none;
+      border: none;
+      color: var(--color-text);
+      cursor: pointer;
+      display: flex;
+      padding: 0;
+      transition: transform 0.2s ease, color 0.2s ease;
+    }
+
+    .theme-toggle:hover {
+      color: var(--color-accent);
+      transform: scale(1.15);
+    }
+
+    .theme-toggle .icon-sun,
+    .theme-toggle .icon-moon {
+      display: none;
+    }
+
+    :root:not([data-theme="dark"]) .theme-toggle .icon-moon {
+      display: block;
+    }
+
+    [data-theme="dark"] .theme-toggle .icon-sun {
+      display: block;
+    }
+
+    /* 引文 */
+    blockquote {
+      margin: 0 0 var(--space-xl) 0;
+      padding: 0;
+      font-family: var(--font-serif);
+      font-size: 18px;
+      line-height: 1.9;
+      color: var(--color-text);
+      font-weight: 400;
+      position: relative;
+      transition: color 0.3s ease;
+    }
+
+    blockquote p {
+      margin: 0 0 var(--space-md) 0;
+    }
+
+    blockquote cite {
+      display: block;
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-style: normal;
+      color: var(--color-text-muted);
+      letter-spacing: 0.05em;
+      margin-top: var(--space-md);
+      transition: color 0.3s ease;
+    }
+
+    blockquote cite::before {
+      content: "— ";
+    }
+
+    /* 分隔线 */
+    .divider {
+      border: 0;
+      height: 1px;
+      background: var(--color-border);
+      margin: var(--space-lg) 0;
+      transition: background 0.3s ease;
+    }
+
+    /* 区域标签 */
+    .section-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--color-text-muted);
+      margin-bottom: var(--space-md);
+      padding-bottom: var(--space-xs);
+      border-bottom: 1px solid var(--color-border);
+      transition: color 0.3s ease, border-color 0.3s ease;
+    }
+
+    /* 列表项 */
+    .feature-list {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 var(--space-lg) 0;
+    }
+
+    .feature-item {
+      padding: var(--space-sm) 0;
+      border-bottom: 1px solid var(--color-border);
+      transition: border-color 0.3s ease;
+    }
+
+    .feature-item-title {
+      font-weight: 500;
+      color: var(--color-text);
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .feature-item-desc {
+      font-size: 13px;
+      color: var(--color-text-muted);
+      line-height: 1.5;
+    }
+
+    /* 链接列表 */
+    .link-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .link-list li a {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-md);
+      color: var(--color-text);
+      text-decoration: none;
+      padding: var(--space-md) 0;
+      border-bottom: 1px solid var(--color-border);
+      font-size: 15px;
+      transition: padding-left 0.25s ease, color 0.3s ease, border-color 0.3s ease;
+    }
+
+    .link-list li a::after {
+      content: "→";
+      font-family: var(--font-mono);
+      color: var(--color-text-subtle);
+      flex: 0 0 auto;
+      transition: transform 0.25s ease, color 0.2s ease;
+    }
+
+    .link-list li a:hover {
+      padding-left: var(--space-sm);
+      color: var(--color-accent);
+    }
+
+    .link-list li a:hover::after {
+      transform: translateX(4px);
+      color: var(--color-accent);
+    }
+
+    .link-info {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .link-name {
+      color: var(--color-text);
+    }
+
+    .link-description {
+      color: var(--color-text-muted);
+      font-size: 12px;
+    }
+
+    /* 页脚 */
+    .footer {
+      margin-top: var(--space-xl);
+      padding-top: var(--space-md);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--color-text-subtle);
+      letter-spacing: 0.05em;
+      text-align: center;
+      transition: color 0.3s ease;
+    }
+
+    .footer-stats {
+      margin-top: 8px;
+      font-size: 10px;
+      font-family: var(--font-mono);
+      color: var(--color-text-subtle);
+      text-align: center;
+    }
+
+    .footer-stats-divider {
+      margin: 0 4px;
+      color: var(--color-text-subtle);
+    }
+
+    /* 响应式 */
+    @media (max-width: 600px) {
+      .container {
+        padding: var(--space-lg) var(--space-md);
+      }
+
+      blockquote {
+        font-size: 16px;
+      }
+    }
+
+    /* 载入动画 */
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .container>* {
+      animation: fadeIn 0.6s ease-out backwards;
+    }
+
+    .brand { animation-delay: 0s; }
+    blockquote { animation-delay: 0.1s; }
+    .divider { animation-delay: 0.2s; }
+    .main-content { animation-delay: 0.3s; }
+  </style>
+</head>
+
+<body>
+  <main class="container">
+    <div class="brand">
+      <span>Tech News Purifier</span>
+      <div class="brand-line"></div>
+      <button class="theme-toggle" title="切换主题">
+        <svg class="icon-moon" width="20" height="20" viewBox="0 0 24 24"
+          fill="none" stroke="currentColor" stroke-width="1.5"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+        </svg>
+        <svg class="icon-sun" width="20" height="20" viewBox="0 0 24 24"
+          fill="none" stroke="currentColor" stroke-width="1.5"
+          stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5" />
+          <line x1="12" y1="1" x2="12" y2="3" />
+          <line x1="12" y1="21" x2="12" y2="23" />
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+          <line x1="1" y1="12" x2="3" y2="12" />
+          <line x1="21" y1="12" x2="23" y2="12" />
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+        </svg>
+      </button>
+      <a href="https://github.com/zskfree/tech-news-purifier" target="_blank" class="brand-github"
+        title="GitHub Repository">
+        <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
+          <path fill-rule="evenodd"
+            d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z">
+          </path>
+        </svg>
+      </a>
+    </div>
+
+    <blockquote>
+      <p>从全网科技噪音中提炼纯粹信号。</p>
+      <p>自动抓取多源 RSS，大模型降噪与演播稿生成，压制 24kbps 极简深度长播客。</p>
+      <cite>Tech News Purifier Engine</cite>
+    </blockquote>
+
+    <hr class="divider" />
+
+    <div class="main-content">
+      <!-- 核心特性 -->
+      <div class="section-label">Core Features</div>
+      <ul class="feature-list">
+        <li class="feature-item">
+          <div class="feature-item-title">📡 多源 RSS 抓取与 AI 降噪</div>
+          <div class="feature-item-desc">定时采集全网优质科技 RSS 订阅源，通过 OneAPI 大模型识别并剔除公关稿、标题党与低质资讯，执行语义与哈希三重去重。</div>
+        </li>
+        <li class="feature-item">
+          <div class="feature-item-title">🎙️ 20 分钟“总-分-总”深度台本</div>
+          <div class="feature-item-desc">编辑提纲、共享事实卡、顺序分板块写作与多轮全文审校，确保客观、精练且前后连贯，仅发布 18~22 分钟优质成品。</div>
+        </li>
+        <li class="feature-item">
+          <div class="feature-item-title">⚡ 24kbps 单声道高压缩音频压制</div>
+          <div class="feature-item-desc">Edge-TTS 与 FFmpeg 人声专属压制：24kbps CBR + 单声道 + 22.05kHz 采样率，20 分钟长播客音频体积仅 ~2.0 MB，节省 90%+ 带宽。</div>
+        </li>
+        <li class="feature-item">
+          <div class="feature-item-title">📻 Apple Podcast 深度增强</div>
+          <div class="feature-item-desc">支持 HTML 结构化富文本 ShowNotes 与 Podcasting 2.0 章节导航，解决播放器时长识别与分段问题。</div>
+        </li>
+      </ul>
+
+      <!-- 项目资源与链接 -->
+      <div class="section-label">Resources & Navigation</div>
+      <ul class="link-list">
+        <li>
+          <a href="https://github.com/zskfree/tech-news-purifier" target="_blank">
+            <span class="link-info">
+              <span class="link-name">GitHub Repository</span>
+              <span class="link-description">开源代码仓库、配置说明与部署指南</span>
+            </span>
+          </a>
+        </li>
+        <li>
+          <a href="podcast/feed.xml" target="_blank">
+            <span class="link-info">
+              <span class="link-name">RSS Feed XML</span>
+              <span class="link-description">标准 Apple Podcast / Podcasting 2.0 订阅源</span>
+            </span>
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <div class="footer">
+      <div>© zskksz | Tech News Purifier</div>
+      <div class="footer-stats">
+        <span id="busuanzi_container_site_pv" style="display:none">
+          PV: <span id="busuanzi_value_site_pv"></span>
+        </span>
+        <span id="busuanzi_container_site_uv" style="display:none">
+          <span class="footer-stats-divider">|</span>UV: <span
+            id="busuanzi_value_site_uv"></span>
+        </span>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // 暗色模式切换
+    (function () {
+      const toggle = document.querySelector('.theme-toggle');
+      const root = document.documentElement;
+      const saved = localStorage.getItem('theme');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (saved) {
+        root.setAttribute('data-theme', saved);
+      } else if (prefersDark) {
+        root.setAttribute('data-theme', 'dark');
+      }
+      toggle.addEventListener('click', function () {
+        const current = root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+        const next = current === 'dark' ? 'light' : 'dark';
+        if (next === 'light') {
+          root.removeAttribute('data-theme');
+        } else {
+          root.setAttribute('data-theme', next);
+        }
+        localStorage.setItem('theme', next);
+      });
+    })();
+
+  </script>
+</body>
+
+</html>
