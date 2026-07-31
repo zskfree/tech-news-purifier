@@ -1,0 +1,28 @@
+[Unit]
+Description=Tech News Purifier daily pipeline
+After=network-online.target one-api.service
+Wants=network-online.target
+OnFailure=tech-news-failure@%n.service
+
+[Service]
+Type=oneshot
+User=technews
+Group=technews
+WorkingDirectory=/opt/tech-news-purifier
+EnvironmentFile=/etc/tech-news-purifier.env
+ExecStart=/opt/tech-news-purifier/.venv/bin/python /opt/tech-news-purifier/purifier.py
+ExecStart=/opt/tech-news-purifier/.venv/bin/python /opt/tech-news-purifier/podcast_generator.py
+TimeoutStartSec=90min
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/tech-news-purifier
+UMask=0027
+LogsDirectory=tech-news-purifier
+LogsDirectoryMode=0750
+StandardOutput=append:/var/log/tech-news-purifier/pipeline.log
+StandardError=append:/var/log/tech-news-purifier/pipeline.log
+
+[Install]
+WantedBy=multi-user.target

@@ -1,11 +1,32 @@
 [project]
 name = "tech-news-purifier"
-version = "0.1.0"
+version = "0.2.0"
 description = "AI Tech News Purifier Engine"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.13"
 dependencies = [
     "edge-tts>=7.2.8",
-    "feedparser",
-    "httpx",
+    "feedparser>=6.0.12",
+    "httpx>=0.28.1",
     "python-dotenv>=1.2.2",
+    "rapidfuzz>=3.13.0",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.1.0",
+    "ruff>=0.12.7",
+]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

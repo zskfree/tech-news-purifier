@@ -1,69 +1,71 @@
-# =========================
-# Python 通用忽略
-# =========================
+# Python bytecode and tool caches
 __pycache__/
 *.py[cod]
 *$py.class
-*.pyo
-*.pyd
-.Python
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyright/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
 
-# 虚拟环境
+# Virtual environments and bundled local runtimes
 .venv/
 venv/
 env/
 ENV/
+.python/
 
-# =========================
-# uv / pip
-# =========================
+# Packaging and build output
+build/
+dist/
+.eggs/
 *.egg
 *.egg-info/
-dist/
-build/
-.eggs/
+wheelhouse/
 
-# =========================
-# 敏感配置（严禁提交）
-# =========================
-# 注意：.env.example 是模板文件，允许提交，其余 .env 文件均禁止
+# Secrets and machine-local configuration
 .env
-.env.local
-.env.production
-.env.development
-.env.staging
+.env.*
+!.env.example
 config.local.py
+*.pem
+*.key
+*.p12
+*.pfx
 
-# =========================
-# 运行时生成数据（不纳入版本控制）
-# =========================
-
-# SQLite 数据库（含处理历史，体积大）
-news.db
+# Runtime state
 *.db
+*.db-shm
+*.db-wal
+*.sqlite
 *.sqlite3
-
-# 日志
 logs/
 *.log
+tmp/
+temp/
 
-# 播客生成物（大体积二进制/动态文件）
-podcast/audio/
-podcast/feed.xml
-podcast/cover.png
+# Generated podcast publication files
+podcast/
 
-# =========================
-# IDE / 系统文件
-# =========================
-.DS_Store
-Thumbs.db
+# Deployment bundles and local backups
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.bak
+*.backup
+*~
+
+# Editor and operating-system metadata
 .vscode/
 .idea/
 *.swp
 *.swo
-
-# =========================
-# 其他
-# =========================
-*.bak
-*.tmp
+.DS_Store
+Thumbs.db
+Desktop.ini

@@ -1,0 +1,11 @@
+[Unit]
+Description=Alert for failed Tech News Purifier unit %i
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/tech-news-purifier.env
+WorkingDirectory=/opt/tech-news-purifier
+ExecStart=/opt/tech-news-purifier/.venv/bin/python -m tech_news_purifier.alert %i
+NoNewPrivileges=true
+ProtectHome=true
+PrivateTmp=true

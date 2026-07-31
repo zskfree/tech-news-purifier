@@ -15,9 +15,9 @@
 
 ## 💡 项目简介 (Overview)
 
-**Tech News Purifier (极客早报净化与播客引擎)** 是一个专为科技爱好者与开发者打造的自动化 AI 资讯处理与播客生成系统。
+**Tech News Purifier（极客早报净化与播客引擎）** 是自动化 AI 技术资讯处理与播客生成系统。
 
-针对每日繁杂且同质化的科技资讯，系统能够**自动抓取多源 RSS 科技新闻**，利用 LLM (OneAPI / Gemini) 进行**标题党过滤、洗稿去重与质量打分**；随后开启 **“总-分-总” 多板块深度写作链**，自动撰写 **20 分钟（5,000+ 字）** 的极客早报播客台本，并通过 **Edge-TTS 与 FFmpeg** 压制为 **24kbps 单声道高压缩人声 MP3**（20 分钟播客仅约 **2MB**）；最终自动生成并发布包含 **Apple Podcast 结构化富文本** 与 **JSON 章节导航 (Chapters)** 的 RSS 订阅源。
+系统自动抓取多源 RSS 技术新闻，使用 OneAPI 大模型执行结构化筛选、去重和质量评分；再通过“编辑提纲、顺序写作、全文审校”生成客观、精练且前后连贯的演播稿。Edge-TTS 与 FFmpeg 将内容压制为 24kbps 单声道 MP3，只有时长处于 18–22 分钟且全部发布校验通过的成品才会进入 RSS Feed。
 
 ---
 
@@ -26,11 +26,13 @@
 - 📡 **多源 RSS 抓取与降噪 (Purifier Engine)**
   - 定时采集全网优质科技 RSS 订阅源。
   - 使用大语言模型识别并剔除公关稿、标题党与低质资讯。
-  - 自动归类、去重合并并打分入库 (SQLite)。
+  - 使用结构化 JSON 归类与打分，执行 URL、内容哈希和七日标题相似度去重。
 
 - 🎙️ **20 分钟 “总-分-总” 深度播客台本 (Multi-stage Script Writer)**
-  - 采用 5 阶段写作链：`开场白与导览` -> `AI与前沿深度解析` -> `GitHub热门开源` -> `硬核系统架构` -> `总结尾声`。
-  - 设定严格的字数生成下限重试机制，确保单集台本可达到 5,000 ~ 7,500 字，覆盖 **15~25 分钟** 收听时长。
+  - 采用编辑提纲、共享事实卡、顺序分板块写作和最多两轮全文审校。
+  - 聚焦评分不低于 7 的重点新闻，保持事实、来源观点和推断之间的界限。
+  - 自动检查预告兑现、术语一致、上下文衔接、重复段落和宣传性语言。
+  - 按板块独立合成并用 FFprobe 实测时长；仅发布 **18~22 分钟** 的成品。
 
 - ⚡ **24kbps 单声道高压缩音频压制 (Ultra-compressed Audio)**
   - 智能分句切割与文本清洗，规避 Edge-TTS 长文本超时与非法字符断连。
@@ -40,7 +42,7 @@
 - 📻 **Apple Podcast 深度增强 (Rich-Text & Chapters)**
   - 完美解决 Apple 播放器由于分段 Header 导致的 **时长识别错误与无法播放问题**。
   - **HTML 结构化富文本**：支持在播客客户端展示带有 CSS 样式的排版表格与板块导览。
-  - **原生地图章节导航**：遵循 `<podcast:chapters>` 规范生成 JSON 章节标记，支持播放器界面点击章节实时跳转。
+  - **Podcasting 2.0 章节导航**：基于真实分段音频时长生成 JSON Chapters，并通过 `<podcast:chapters>` 发布。
 
 ---
 
@@ -80,9 +82,9 @@ cp .env.example .env
 ```env
 ONE_API_KEY=your_one_api_key_here
 ONE_API_URL=http://127.0.0.1:3000/v1/chat/completions
-SERVER_BASE_URL=http://your-server-ip-or-domain
-DB_PATH=/opt/tech-news-purifier/news.db
-PODCAST_DIR=/opt/tech-news-purifier/podcast
+SERVER_BASE_URL=http://47.115.165.231:23654
+DB_PATH=/var/lib/tech-news-purifier/news.db
+PODCAST_DIR=/var/lib/tech-news-purifier/podcast
 ```
 
 ---
@@ -101,21 +103,17 @@ uv run python purifier.py
 uv run python podcast_generator.py
 ```
 
-### 3. 启动播客 HTTP 部署服务
+### 3. 生产部署
 
-```bash
-uv run python podcast_server.py
-```
-服务默认监听在 `http://0.0.0.0:80`，提供以下终端支持：
-- `http://<your-ip>/feed.xml` — Podcast RSS 订阅源
-- `http://<your-ip>/audio/<date>.mp3` — 24kbps 高压缩音频文件
-- `http://<your-ip>/chapters/<date>.json` — 章节导航 JSON
+生产环境由 Nginx 在 `23654` 提供 Range 和静态文件服务，systemd timer 每天 07:30
+运行处理管线。该入口使用 HTTP，不配置域名或 HTTPS。完整配置见
+[生产部署说明](docs/DEPLOYMENT.md)。
 
 ---
 
 ## 📱 播客客户端订阅指南 (Podcast Subscription)
 
-复制您的服务器订阅地址 `http://<your-ip-or-domain>/feed.xml`：
+复制订阅地址 `http://47.115.165.231:23654/feed.xml`：
 
 1. **Apple Podcasts (苹果播客)**：
    - 打开 App -> 点击顶部 `“通过 URL 添加节目...”` -> 粘贴 `feed.xml` 地址 -> 订阅。
@@ -134,7 +132,9 @@ tech-news-purifier/
 │       └── architecture.svg
 ├── purifier.py               # 多源 RSS 抓取与 LLM 降噪引擎
 ├── podcast_generator.py      # 20分钟播客台本生成、Edge-TTS 与 FFmpeg 高压编码
-├── podcast_server.py         # HTTP RSS 部署服务
+├── tech_news_purifier/       # 抓取、LLM、数据库、音频与 Feed 核心模块
+├── deploy/                   # Nginx、systemd 与防火墙配置
+├── tests/                    # 不调用真实 AI/TTS 的离线测试
 ├── pyproject.toml             # uv 项目依赖与配置
 ├── .env.example              # 环境变量配置模板
 └── README.md                 # 项目主页文档

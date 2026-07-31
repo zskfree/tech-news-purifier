@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Tech News Purifier every day at 07:30 Asia/Shanghai
+
+[Timer]
+OnCalendar=*-*-* 07:30:00 Asia/Shanghai
+Persistent=true
+AccuracySec=1min
+Unit=tech-news-pipeline.service
+
+[Install]
+WantedBy=timers.target
